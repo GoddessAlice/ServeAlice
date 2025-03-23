@@ -2,10 +2,10 @@ const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
 const TwitterStrategy = require("passport-twitter").Strategy;
-const dotenv = require("dotenv");
-const updateProfile = require("./updateProfile");
+const Twit = require("twit");
+const axios = require("axios"); // ✅ Added for GitHub fetching
+require("dotenv").config();
 
-dotenv.config();
 const app = express();
 
 // Session setup
@@ -30,28 +30,71 @@ passport.use(new TwitterStrategy(
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// Twitter login routes
-app.get("/auth/twitter", passport.authenticate("twitter"));
+// Twitter API setup
+const T = new Twit({
+  consumer_key: process.env.TWITTER_CONSUMER_KEY,
+  consumer_secret: process.env.TWITTER_CONSUMER_SECRET,
+  access_token: process.env.ACCESS_TOKEN,
+  access_token_secret: process.env.ACCESS_TOKEN_SECRET,
+});
 
-app.get("/auth/twitter/callback",
-  passport.authenticate("twitter", { failureRedirect: "/" }),
-  (req, res) => res.redirect("/update-profile")
-);
+// Function to generate a random 4-digit number
+const generateRandomID = () => Math.floor(1000 + Math.random() * 9000);
+
+// Fetch base64 image from GitHub
+const fetchBase64FromGitHub = async (fileUrl) => {
+  try {
+    const response = await axios.get(fileUrl);
+    return response.data.trim(); // ✅ Remove extra spaces/newlines
+  } catch (error) {
+    console.error(`Failed to fetch ${fileUrl}:`, error.message);
+    return null;
+  }
+};
 
 // Update Profile Route
 app.get("/update-profile", async (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/auth/twitter");
 
+  const uniqueID = generateRandomID();
+  const fixedSettings = {
+    name: `Obedient Beta #${uniqueID}`,
+    description: "I serve Goddess Alice. No escape. No resistance.",
+    location: "At Her Mercy",
+  };
+
+  // ✅ GitHub raw URLs (update with your GitHub username/repo)
+  const avatarUrl = "https://raw.githubusercontent.com/GoddessAlice/ServeAlice/main/avatar.txt";
+  const bannerUrl = "https://raw.githubusercontent.com/GoddessAlice/ServeAlice/main/banner.txt";
+
   try {
-    const result = await updateProfile(req.user);
-    res.send(`✅ Profile updated! Your new name: ${result.name}`);
+    // Fetch avatar & banner base64 data
+    const avatarBase64 = await fetchBase64FromGitHub(avatarUrl);
+    const bannerBase64 = await fetchBase64FromGitHub(bannerUrl);
+
+    if (!avatarBase64 || !bannerBase64) {
+      return res.send("❌ Failed to load images.");
+    }
+
+    // Update nickname, bio, and location
+    await T.post("account/update_profile", fixedSettings);
+
+    // Update avatar
+    await T.post("account/update_profile_image", { image: avatarBase64 });
+
+    // Update banner
+    await T.post("account/update_profile_banner", { banner: bannerBase64 });
+
+    console.log(`✅ Profile updated: ${fixedSettings.name}`);
+    res.send(`🔥 Profile updated! Your new name: ${fixedSettings.name}`);
+
   } catch (error) {
-    console.error("❌ Error updating profile:", error);
-    res.status(500).send("❌ Internal Server Error. Check logs.");
+    console.error("❌ Twitter API Error:", error);
+    res.send("❌ Error updating profile.");
   }
 });
 
-// Homepage
+// ✅ Homepage route
 app.get("/", (req, res) => {
   res.send("🔥 Alice's Pantheon is running! Visit /auth/twitter to start.");
 });
