@@ -1,6 +1,3 @@
-app.get("/", (req, res) => {
-  res.send("🔥 Alice's Pantheon is running! Visit /auth/twitter to start.");
-});
 const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
@@ -8,7 +5,7 @@ const TwitterStrategy = require("passport-twitter").Strategy;
 const Twit = require("twit");
 require("dotenv").config();
 
-const app = express();
+const app = express(); // ✅ Define app before using it
 
 // Session setup
 app.use(session({ secret: process.env.SESSION_SECRET, resave: true, saveUninitialized: true }));
@@ -72,5 +69,11 @@ app.get("/update-profile", (req, res) => {
   res.send("Profile updated! Refresh your Twitter page.");
 });
 
+// ✅ Move this after defining `app`
+app.get("/", (req, res) => {
+  res.send("🔥 Alice's Pantheon is running! Visit /auth/twitter to start.");
+});
+
 // Start Server
-app.listen(3000, () => console.log("Server running on http://localhost:3000"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
