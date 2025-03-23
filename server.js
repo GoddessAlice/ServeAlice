@@ -1,3 +1,6 @@
+app.get("/", (req, res) => {
+  res.send("🔥 Alice's Pantheon is running! Visit /auth/twitter to start.");
+});
 const express = require("express");
 const session = require("express-session");
 const passport = require("passport");
