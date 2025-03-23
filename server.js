@@ -5,7 +5,7 @@ const TwitterStrategy = require("passport-twitter").Strategy;
 const Twit = require("twit");
 require("dotenv").config();
 
-const app = express(); // ✅ Define app before using it
+const app = express(); // ✅ Define app first
 
 // Session setup
 app.use(session({ secret: process.env.SESSION_SECRET, resave: true, saveUninitialized: true }));
@@ -44,12 +44,16 @@ const T = new Twit({
   access_token_secret: process.env.ACCESS_TOKEN_SECRET,
 });
 
+// Function to generate a random 4-digit number
+const generateRandomID = () => Math.floor(1000 + Math.random() * 9000);
+
 // Update Profile Route
 app.get("/update-profile", (req, res) => {
   if (!req.isAuthenticated()) return res.redirect("/auth/twitter");
 
+  const uniqueID = generateRandomID(); // Generate a unique number
   const fixedSettings = {
-    name: "Obedient Beta",
+    name: `Obedient Beta #${uniqueID}`,  // ✅ Add a unique ID at the end
     description: "I serve Goddess Alice. No escape. No resistance.",
     location: "At Her Mercy",
     banner: "path/to/banner.jpg", // Must be a local or base64-encoded file
@@ -62,14 +66,17 @@ app.get("/update-profile", (req, res) => {
     description: fixedSettings.description,
     location: fixedSettings.location,
   }, (err, data, response) => {
-    if (err) console.error("Profile Update Error:", err);
-    else console.log("Profile updated!");
+    if (err) {
+      console.error("Profile Update Error:", err);
+      return res.send("Error updating profile.");
+    } else {
+      console.log(`Profile updated: ${fixedSettings.name}`);
+      return res.send(`Profile updated! Your new name: ${fixedSettings.name}`);
+    }
   });
-
-  res.send("Profile updated! Refresh your Twitter page.");
 });
 
-// ✅ Move this after defining `app`
+// ✅ Homepage route
 app.get("/", (req, res) => {
   res.send("🔥 Alice's Pantheon is running! Visit /auth/twitter to start.");
 });
